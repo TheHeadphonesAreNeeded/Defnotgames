@@ -1,1227 +1,877 @@
 /**
- * LearnHub — script.js
- * Handles: routing, data, lessons, quizzes, progress, settings, search
- * All data persists in localStorage. No external dependencies.
+ * DefNotGames — script.js
+ * Six hand-rolled browser games + site UI.
+ * High scores persist in localStorage. No dependencies.
  */
 
-// ═══════════════════════════════════════════════════
-// DATA — Lessons
-// ═══════════════════════════════════════════════════
-const LESSONS = [
-  {
-    id: 'math-1', category: 'math', title: 'Introduction to Algebra',
-    emoji: '📐', difficulty: 'beginner', duration: '12 min', xp: 50,
-    description: 'Learn the foundational concepts of algebra including variables, expressions, and equations.',
-    content: [
-      {
-        type: 'text', heading: 'What is Algebra?',
-        body: `Algebra is a branch of mathematics dealing with symbols and the rules for manipulating those symbols. These symbols represent quantities without fixed values, known as <em>variables</em>.
+'use strict';
 
-At its core, algebra gives us a language to describe relationships and solve problems where some values are unknown.`
-      },
-      {
-        type: 'concept',
-        text: '<strong>Key Insight:</strong> A variable is simply a placeholder for a number we don't yet know. We typically use letters like x, y, or z.'
-      },
-      {
-        type: 'text', heading: 'Expressions vs. Equations',
-        body: `An <strong>expression</strong> is a combination of numbers, variables, and operations — but no equals sign. Example: <code>3x + 5</code>
+/* ═══════════════════ Helpers & storage ═══════════════════ */
 
-An <strong>equation</strong> asserts that two expressions are equal. Example: <code>3x + 5 = 14</code>
+const $ = (s, r = document) => r.querySelector(s);
 
-The goal in algebra is often to <em>solve</em> an equation — to find the value of the variable that makes it true.`
-      },
-      {
-        type: 'text', heading: 'Solving a Simple Equation',
-        body: 'Let\'s solve: 3x + 5 = 14\n\nStep 1: Subtract 5 from both sides → 3x = 9\nStep 2: Divide both sides by 3 → x = 3\n\nAlways perform the same operation on both sides to keep the equation balanced.'
-      }
-    ]
+const store = {
+  key: 'dng-best-v1',
+  all() {
+    try { return JSON.parse(localStorage.getItem(this.key)) || {}; }
+    catch { return {}; }
   },
-  {
-    id: 'math-2', category: 'math', title: 'Geometry Basics',
-    emoji: '🔺', difficulty: 'beginner', duration: '10 min', xp: 50,
-    description: 'Explore shapes, angles, and the properties that define them.',
-    content: [
-      {
-        type: 'text', heading: 'Points, Lines & Planes',
-        body: 'Geometry begins with three undefined terms: a <strong>point</strong> (a location), a <strong>line</strong> (extends infinitely in two directions), and a <strong>plane</strong> (a flat surface extending infinitely).'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Remember:</strong> Two points define exactly one line. Three non-collinear points define exactly one plane.'
-      },
-      {
-        type: 'text', heading: 'Types of Angles',
-        body: 'Angles are measured in degrees:\n• Acute angle: less than 90°\n• Right angle: exactly 90°\n• Obtuse angle: between 90° and 180°\n• Straight angle: exactly 180°'
-      }
-    ]
+  get(id) { return this.all()[id]; },
+  set(id, v) {
+    const a = this.all();
+    a[id] = v;
+    localStorage.setItem(this.key, JSON.stringify(a));
   },
-  {
-    id: 'science-1', category: 'science', title: 'Newton\'s Laws of Motion',
-    emoji: '🍎', difficulty: 'intermediate', duration: '15 min', xp: 75,
-    description: 'Understand the three fundamental laws that govern how objects move.',
-    content: [
-      {
-        type: 'text', heading: 'First Law: Inertia',
-        body: 'An object at rest stays at rest, and an object in motion stays in motion at the same speed and in the same direction, unless acted upon by an unbalanced force.\n\nThis tendency of objects to resist changes in their state of motion is called <strong>inertia</strong>.'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Real-world example:</strong> When a car brakes suddenly, passengers lurch forward. Their bodies want to continue moving at the original speed.'
-      },
-      {
-        type: 'text', heading: 'Second Law: Force = Mass × Acceleration',
-        body: 'The acceleration of an object depends on two things: the net force applied and the object\'s mass.\n\nFormula: F = ma\n\nA larger force produces greater acceleration. A larger mass requires more force to achieve the same acceleration.'
-      },
-      {
-        type: 'text', heading: 'Third Law: Action-Reaction',
-        body: 'For every action, there is an equal and opposite reaction. Forces always come in pairs — action and reaction act on different objects.\n\nExample: A rocket pushes exhaust downward (action), and the exhaust pushes the rocket upward (reaction).'
-      }
-    ]
-  },
-  {
-    id: 'science-2', category: 'science', title: 'The Periodic Table',
-    emoji: '⚗️', difficulty: 'beginner', duration: '14 min', xp: 60,
-    description: 'Discover how elements are organized and what their arrangement tells us.',
-    content: [
-      {
-        type: 'text', heading: 'Organisation of Elements',
-        body: 'The periodic table arranges all known chemical elements in rows (periods) and columns (groups) based on their atomic number and properties.\n\nElements in the same group share similar chemical properties because they have the same number of valence electrons.'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Key fact:</strong> The atomic number equals the number of protons in an atom\'s nucleus, which defines what element it is.'
-      },
-      {
-        type: 'text', heading: 'Metals, Metalloids & Nonmetals',
-        body: 'About 75% of elements are metals (left side). Nonmetals sit on the upper-right. Metalloids form a diagonal staircase between them, sharing properties of both.\n\nMetals conduct electricity well; nonmetals generally do not.'
-      }
-    ]
-  },
-  {
-    id: 'code-1', category: 'code', title: 'JavaScript Fundamentals',
-    emoji: '⚡', difficulty: 'beginner', duration: '20 min', xp: 80,
-    description: 'Learn variables, functions, and control flow in modern JavaScript.',
-    content: [
-      {
-        type: 'text', heading: 'Variables in JavaScript',
-        body: 'JavaScript has three ways to declare variables: <code>var</code> (old, avoid), <code>let</code> (block-scoped, reassignable), and <code>const</code> (block-scoped, not reassignable).'
-      },
-      {
-        type: 'code',
-        text: `// Prefer const by default\nconst name = 'LearnHub';\n\n// Use let when you need to reassign\nlet score = 0;\nscore = score + 10;\n\nconsole.log(name, score); // "LearnHub" 10`
-      },
-      {
-        type: 'text', heading: 'Functions',
-        body: 'Functions encapsulate reusable logic. Modern JavaScript supports both function declarations and arrow functions.'
-      },
-      {
-        type: 'code',
-        text: `// Arrow function (modern)\nconst greet = (user) => {\n  return \`Hello, \${user}!\`;\n};\n\nconsole.log(greet('World')); // "Hello, World!"`
-      },
-      {
-        type: 'concept',
-        text: '<strong>Best practice:</strong> Use <code>const</code> for everything by default. Only switch to <code>let</code> when you know the value will change.'
-      }
-    ]
-  },
-  {
-    id: 'code-2', category: 'code', title: 'CSS Layout with Flexbox',
-    emoji: '🎨', difficulty: 'intermediate', duration: '18 min', xp: 75,
-    description: 'Master the Flexbox model to build responsive, modern layouts.',
-    content: [
-      {
-        type: 'text', heading: 'What is Flexbox?',
-        body: 'Flexbox (Flexible Box Layout) is a CSS layout model designed to distribute space along a single axis — either row or column — making alignment and distribution of items intuitive.'
-      },
-      {
-        type: 'code',
-        text: `.container {\n  display: flex;\n  justify-content: space-between; /* main axis */\n  align-items: center;            /* cross axis */\n  gap: 16px;\n}`
-      },
-      {
-        type: 'concept',
-        text: '<strong>Key concept:</strong> <code>justify-content</code> aligns items along the main axis; <code>align-items</code> aligns them on the cross axis.'
-      },
-      {
-        type: 'text', heading: 'Common Properties',
-        body: '• flex-direction: row | column\n• flex-wrap: nowrap | wrap\n• justify-content: flex-start | center | space-between | space-around\n• align-items: stretch | center | flex-start | flex-end\n• flex: shorthand for flex-grow, flex-shrink, flex-basis'
-      }
-    ]
-  },
-  {
-    id: 'history-1', category: 'history', title: 'The Renaissance',
-    emoji: '🏛️', difficulty: 'intermediate', duration: '16 min', xp: 70,
-    description: 'Explore the cultural rebirth that transformed Europe from the 14th to 17th century.',
-    content: [
-      {
-        type: 'text', heading: 'What Was the Renaissance?',
-        body: 'The Renaissance — French for "rebirth" — was a period of European cultural, artistic, political, and scientific flourishing that began in Italy in the 14th century before spreading across Europe.'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Core idea:</strong> Renaissance thinkers championed <em>humanism</em> — a focus on human potential and achievement rather than purely religious themes.'
-      },
-      {
-        type: 'text', heading: 'Key Figures',
-        body: 'Leonardo da Vinci embodied the "Renaissance man" ideal — excelling in painting, sculpture, architecture, science, and engineering.\n\nMichelangelo created iconic works like the Sistine Chapel ceiling and the statue of David.\n\nNiccolò Machiavelli wrote "The Prince," laying groundwork for modern political thought.'
-      },
-      {
-        type: 'text', heading: 'Legacy',
-        body: 'The Renaissance led directly to the Scientific Revolution and Enlightenment. It fundamentally changed how people understood humanity\'s place in the universe, shifting from purely theological frameworks toward empirical observation and individual reason.'
-      }
-    ]
-  },
-  {
-    id: 'language-1', category: 'language', title: 'How Languages Are Structured',
-    emoji: '🗣️', difficulty: 'beginner', duration: '13 min', xp: 55,
-    description: 'Discover phonetics, morphology, and syntax — the building blocks of every language.',
-    content: [
-      {
-        type: 'text', heading: 'Linguistics: The Science of Language',
-        body: 'Linguistics studies the structure, meaning, and use of human language. Every known human language — all 7,000+ of them — shares certain structural features, suggesting an innate human capacity for language.'
-      },
-      {
-        type: 'text', heading: 'Phonetics & Phonology',
-        body: '<strong>Phonetics</strong> studies the physical sounds of speech. English uses about 44 distinct sounds (phonemes) despite having only 26 letters.\n\n<strong>Phonology</strong> studies how sounds function within a particular language system.'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Fascinating fact:</strong> Babies are born capable of distinguishing every sound in every human language. By 12 months, they\'ve specialized to the sounds of their native language.'
-      },
-      {
-        type: 'text', heading: 'Syntax: Building Sentences',
-        body: 'Syntax governs how words combine into sentences. English follows Subject-Verb-Object order: "The cat [S] chased [V] the mouse [O]."\n\nJapanese uses Subject-Object-Verb. Arabic often uses Verb-Subject-Object. The order differs, but all languages have systematic rules.'
-      }
-    ]
-  },
-  {
-    id: 'math-3', category: 'math', title: 'Probability & Statistics',
-    emoji: '🎲', difficulty: 'intermediate', duration: '17 min', xp: 75,
-    description: 'Understand chance, data distributions, and how to draw conclusions from data.',
-    content: [
-      {
-        type: 'text', heading: 'What is Probability?',
-        body: 'Probability measures the likelihood of an event occurring, expressed as a number between 0 (impossible) and 1 (certain).\n\nFormula: P(event) = favorable outcomes ÷ total possible outcomes'
-      },
-      {
-        type: 'concept',
-        text: '<strong>Example:</strong> Rolling a 6 on a fair die: P(6) = 1/6 ≈ 0.167 (16.7% chance).'
-      },
-      {
-        type: 'text', heading: 'Mean, Median & Mode',
-        body: 'These three measures describe the "center" of a dataset:\n\n• Mean: sum of all values ÷ count (sensitive to outliers)\n• Median: the middle value when sorted (robust to outliers)\n• Mode: the most frequently occurring value'
-      }
-    ]
-  },
-  {
-    id: 'code-3', category: 'code', title: 'Data Structures: Arrays & Objects',
-    emoji: '🗂️', difficulty: 'advanced', duration: '22 min', xp: 100,
-    description: 'Deep dive into arrays and objects — the backbone of data in programming.',
-    content: [
-      {
-        type: 'text', heading: 'Arrays',
-        body: 'An array is an ordered collection of values, accessed by numeric index (starting at 0). Arrays can hold any type of value — numbers, strings, objects, even other arrays.'
-      },
-      {
-        type: 'code',
-        text: `const fruits = ['apple', 'banana', 'cherry'];\n\nconsole.log(fruits[0]); // 'apple'\nconsole.log(fruits.length); // 3\n\n// Common methods\nfruits.push('date');         // add to end\nfruits.pop();                // remove from end\nconst upper = fruits.map(f => f.toUpperCase());`
-      },
-      {
-        type: 'text', heading: 'Objects',
-        body: 'An object stores key-value pairs. Keys are strings (or Symbols); values can be anything. Objects model real-world entities with properties.'
-      },
-      {
-        type: 'code',
-        text: `const user = {\n  name: 'Alex',\n  score: 420,\n  isActive: true\n};\n\nconsole.log(user.name);       // 'Alex'\nconsole.log(user['score']);   // 420\n\n// Destructuring\nconst { name, score } = user;`
-      },
-      {
-        type: 'concept',
-        text: '<strong>Rule of thumb:</strong> Use arrays for ordered lists of similar items. Use objects to describe an entity with named properties.'
-      }
-    ]
-  }
-];
-
-// ═══════════════════════════════════════════════════
-// DATA — Quizzes
-// ═══════════════════════════════════════════════════
-const QUIZZES = [
-  {
-    id: 'quiz-math', title: 'Algebra & Numbers', icon: '📐',
-    description: 'Test your mathematical reasoning across algebra and number theory.',
-    questions: 5, xp: 100,
-    items: [
-      {
-        q: 'What is the value of x in the equation: 2x + 4 = 14?',
-        options: ['x = 3', 'x = 5', 'x = 9', 'x = 7'],
-        answer: 1,
-        explanation: 'Subtract 4 from both sides: 2x = 10. Then divide by 2: x = 5.'
-      },
-      {
-        q: 'Which of these is NOT a prime number?',
-        options: ['7', '11', '15', '17'],
-        answer: 2,
-        explanation: '15 = 3 × 5, so it has factors other than 1 and itself.'
-      },
-      {
-        q: 'What is the area of a rectangle with width 6 and height 9?',
-        options: ['15', '30', '54', '45'],
-        answer: 2,
-        explanation: 'Area = width × height = 6 × 9 = 54.'
-      },
-      {
-        q: 'Simplify: 3(x + 4) − 2x',
-        options: ['x + 4', 'x + 12', '5x + 12', 'x − 12'],
-        answer: 1,
-        explanation: '3x + 12 − 2x = x + 12.'
-      },
-      {
-        q: 'What is 25% of 80?',
-        options: ['15', '20', '25', '40'],
-        answer: 1,
-        explanation: '25% = 0.25. 0.25 × 80 = 20.'
-      }
-    ]
-  },
-  {
-    id: 'quiz-science', title: 'Physics & Chemistry', icon: '🔬',
-    description: 'Challenge your understanding of the physical world.',
-    questions: 5, xp: 100,
-    items: [
-      {
-        q: 'According to Newton\'s Second Law, if force doubles and mass stays constant, acceleration:',
-        options: ['Stays the same', 'Doubles', 'Halves', 'Quadruples'],
-        answer: 1,
-        explanation: 'F = ma → a = F/m. If F doubles and m is constant, a doubles.'
-      },
-      {
-        q: 'What is the chemical symbol for Gold?',
-        options: ['Go', 'Gd', 'Au', 'Ag'],
-        answer: 2,
-        explanation: 'Gold\'s symbol Au comes from the Latin "Aurum".'
-      },
-      {
-        q: 'Which of these is a noble gas?',
-        options: ['Oxygen', 'Nitrogen', 'Neon', 'Hydrogen'],
-        answer: 2,
-        explanation: 'Neon (Ne) is a noble gas — group 18 of the periodic table.'
-      },
-      {
-        q: 'What is the approximate speed of light?',
-        options: ['300 km/s', '3,000 km/s', '300,000 km/s', '3,000,000 km/s'],
-        answer: 2,
-        explanation: 'Light travels at approximately 299,792 km/s — roughly 300,000 km/s.'
-      },
-      {
-        q: 'What type of bond involves sharing electrons between atoms?',
-        options: ['Ionic bond', 'Covalent bond', 'Hydrogen bond', 'Metallic bond'],
-        answer: 1,
-        explanation: 'A covalent bond is formed when atoms share electron pairs.'
-      }
-    ]
-  },
-  {
-    id: 'quiz-code', title: 'JavaScript & Web Dev', icon: '💻',
-    description: 'Prove your programming knowledge with real coding questions.',
-    questions: 5, xp: 120,
-    items: [
-      {
-        q: 'Which keyword declares a block-scoped variable that CAN be reassigned?',
-        options: ['var', 'let', 'const', 'def'],
-        answer: 1,
-        explanation: '`let` is block-scoped and allows reassignment. `const` is block-scoped but not reassignable.'
-      },
-      {
-        q: 'What does `console.log(typeof [])` output in JavaScript?',
-        options: ['"array"', '"list"', '"object"', '"undefined"'],
-        answer: 2,
-        explanation: 'Arrays in JavaScript are objects. typeof [] returns "object".'
-      },
-      {
-        q: 'Which CSS property controls alignment along the main Flexbox axis?',
-        options: ['align-items', 'align-content', 'justify-content', 'flex-direction'],
-        answer: 2,
-        explanation: 'justify-content aligns items along the main axis (horizontal by default).'
-      },
-      {
-        q: 'What is the output of: [1,2,3].map(x => x * 2)?',
-        options: ['[2,4,6]', '6', '[1,2,3,2]', 'undefined'],
-        answer: 0,
-        explanation: '.map() returns a new array. Each element is multiplied by 2: [2, 4, 6].'
-      },
-      {
-        q: 'Which method converts a JSON string to a JavaScript object?',
-        options: ['JSON.stringify()', 'JSON.parse()', 'JSON.decode()', 'JSON.convert()'],
-        answer: 1,
-        explanation: 'JSON.parse() converts a JSON string into a JavaScript object. JSON.stringify() does the reverse.'
-      }
-    ]
-  },
-  {
-    id: 'quiz-history', title: 'World History', icon: '🏛️',
-    description: 'Test your knowledge of historical events and civilizations.',
-    questions: 4, xp: 90,
-    items: [
-      {
-        q: 'In which century did the Renaissance begin?',
-        options: ['12th century', '13th century', '14th century', '16th century'],
-        answer: 2,
-        explanation: 'The Renaissance began in Italy in the 14th century (1300s).'
-      },
-      {
-        q: 'Who wrote "The Prince," a foundational text of political theory?',
-        options: ['Dante Alighieri', 'Leonardo da Vinci', 'Niccolò Machiavelli', 'Galileo Galilei'],
-        answer: 2,
-        explanation: 'Niccolò Machiavelli wrote "The Prince" in 1513.'
-      },
-      {
-        q: 'What does "Renaissance" mean in French?',
-        options: ['Revolution', 'Rebirth', 'Renewal of faith', 'Age of reason'],
-        answer: 1,
-        explanation: 'Renaissance is French for "rebirth," reflecting the period\'s revival of classical learning.'
-      },
-      {
-        q: 'Which artist painted the Sistine Chapel ceiling?',
-        options: ['Leonardo da Vinci', 'Raphael', 'Donatello', 'Michelangelo'],
-        answer: 3,
-        explanation: 'Michelangelo painted the Sistine Chapel ceiling between 1508 and 1512.'
-      }
-    ]
-  }
-];
-
-// ═══════════════════════════════════════════════════
-// STATE & STORAGE
-// ═══════════════════════════════════════════════════
-const DEFAULT_STATE = {
-  theme: 'dark',
-  accent: 'cyan',
-  reduceMotion: false,
-  xpAnimations: true,
-  dailyGoal: 3,
-  displayName: 'Learner',
-  avatarEmoji: '🧠',
-  completedLessons: [],   // lesson ids
-  lessonProgress: {},     // id -> 0-100
-  quizHistory: [],        // { quizId, score, total, date }
-  totalXP: 0,
-  streak: 0,
-  lastActiveDate: null,
 };
 
-function loadState() {
-  try {
-    const saved = localStorage.getItem('learnhub_state');
-    return saved ? { ...DEFAULT_STATE, ...JSON.parse(saved) } : { ...DEFAULT_STATE };
-  } catch { return { ...DEFAULT_STATE }; }
+let toastTimer;
+function toast(msg) {
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
 }
 
-function saveState() {
-  try { localStorage.setItem('learnhub_state', JSON.stringify(state)); } catch {}
+/* ═══════════════════ Game registry ═══════════════════ */
+
+const GAMES = [
+  {
+    id: 'snake', name: 'Snake', tag: 'arcade', emoji: '🐍',
+    desc: 'The timeless classic. Eat, grow, and try not to bite yourself.',
+    grad: 'linear-gradient(135deg, #065f46, #34d399)',
+    controls: 'Arrow keys / WASD to steer · swipe on mobile',
+    unit: 'pts', better: 'high', factory: (s, a) => snakeGame(s, a),
+  },
+  {
+    id: '2048', name: '2048', tag: 'puzzle', emoji: '🔢',
+    desc: 'Slide tiles, merge numbers, chase the mythical 2048 tile.',
+    grad: 'linear-gradient(135deg, #92400e, #fbbf24)',
+    controls: 'Arrow keys to slide · swipe on mobile',
+    unit: 'pts', better: 'high', factory: (s, a) => game2048(s, a),
+  },
+  {
+    id: 'breakout', name: 'Breakout', tag: 'arcade', emoji: '🧱',
+    desc: 'Smash every brick. Three balls, rising speed, no mercy.',
+    grad: 'linear-gradient(135deg, #9f1239, #fb7185)',
+    controls: 'Move mouse / drag to steer · click or Space to launch',
+    unit: 'pts', better: 'high', factory: (s, a) => breakoutGame(s, a),
+  },
+  {
+    id: 'flappy', name: 'Flappy Byte', tag: 'arcade', emoji: '🐤',
+    desc: 'One button. Infinite pipes. How far can you flap?',
+    grad: 'linear-gradient(135deg, #0e7490, #67e8f9)',
+    controls: 'Click, tap or Space to flap',
+    unit: 'pipes', better: 'high', factory: (s, a) => flappyGame(s, a),
+  },
+  {
+    id: 'memory', name: 'Memory Match', tag: 'puzzle', emoji: '🧠',
+    desc: 'Flip the cards, find the pairs, train that beautiful brain.',
+    grad: 'linear-gradient(135deg, #5b21b6, #c4b5fd)',
+    controls: 'Click or tap cards to flip them',
+    unit: 'moves', better: 'low', factory: (s, a) => memoryGame(s, a),
+  },
+  {
+    id: 'ttt', name: 'Tic-Tac-Toe', tag: 'classic', emoji: '⭕',
+    desc: 'You vs. a ruthless little AI. Good luck — you\'ll need it.',
+    grad: 'linear-gradient(135deg, #1e3a8a, #93c5fd)',
+    controls: 'Click or tap a square · you are X',
+    unit: 'wins', better: 'high', factory: (s, a) => tttGame(s, a),
+  },
+];
+
+/* ═══════════════════ Card grid ═══════════════════ */
+
+function bestLabel(g) {
+  const b = store.get(g.id);
+  return b === undefined
+    ? `Best <strong>—</strong>`
+    : `Best <strong>${b}</strong> ${g.unit}`;
 }
 
-let state = loadState();
+function renderGrid(filter = 'all') {
+  const grid = $('#gamesGrid');
+  grid.innerHTML = GAMES
+    .filter(g => filter === 'all' || g.tag === filter)
+    .map(g => `
+      <button class="game-card" data-game="${g.id}" aria-label="Play ${g.name}">
+        <div class="gc-thumb" style="background:${g.grad}">
+          <span class="gc-emoji">${g.emoji}</span>
+          <span class="gc-tag">${g.tag}</span>
+        </div>
+        <div class="gc-body">
+          <div class="gc-name">${g.name}</div>
+          <p class="gc-desc">${g.desc}</p>
+          <div class="gc-foot">
+            <span class="gc-best">${bestLabel(g)}</span>
+            <span class="gc-play">Play →</span>
+          </div>
+        </div>
+      </button>`)
+    .join('');
+}
 
-// ═══════════════════════════════════════════════════
-// INIT
-// ═══════════════════════════════════════════════════
-document.addEventListener('DOMContentLoaded', () => {
-  applyTheme();
-  applyAccent();
-  applyReduceMotion();
-  updateStreak();
-  renderDashboard();
-  renderLessonsGrid('all');
-  renderQuizList();
-  renderProgress();
-  renderProfile();
-  syncSettingsUI();
-  wireNavigation();
-  wireSearch();
-  wireMobileMenu();
-  wireSettings();
-  setDashboardGreeting();
+$('#gamesGrid').addEventListener('click', e => {
+  const card = e.target.closest('.game-card');
+  if (card) openGame(card.dataset.game);
 });
 
-// ═══════════════════════════════════════════════════
-// THEME & APPEARANCE
-// ═══════════════════════════════════════════════════
-function applyTheme() {
-  document.documentElement.setAttribute('data-theme', state.theme);
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === state.theme);
-  });
+$('#filterChips').addEventListener('click', e => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  $('#filterChips .active')?.classList.remove('active');
+  chip.classList.add('active');
+  renderGrid(chip.dataset.filter);
+});
+
+$('#luckyBtn').addEventListener('click', () => {
+  openGame(GAMES[Math.floor(Math.random() * GAMES.length)].id);
+});
+
+$('#year').textContent = new Date().getFullYear();
+
+/* ═══════════════════ Game modal ═══════════════════ */
+
+const modal = $('#gameModal');
+const stage = $('#gmStage');
+let current = null;   // { game, instance }
+
+function updateBestChip(g) {
+  const b = store.get(g.id);
+  const chip = $('#gmBest');
+  chip.textContent = b === undefined ? 'Best —' : `Best ${b}`;
+  chip.classList.remove('hidden');
 }
 
-function applyAccent() {
-  document.documentElement.setAttribute('data-accent', state.accent);
-  document.querySelectorAll('.swatch').forEach(s => {
-    s.classList.toggle('active', s.dataset.accent === state.accent);
-  });
+function makeApi(g) {
+  return {
+    setScore(v) { $('#gmScore').textContent = typeof v === 'number' ? `Score ${v}` : v; },
+    gameOver(finalScore, opts = {}) {
+      const prev = store.get(g.id);
+      const isRecord = finalScore !== null && (
+        prev === undefined ||
+        (g.better === 'high' ? finalScore > prev : finalScore < prev)
+      );
+      if (isRecord && finalScore !== null) {
+        store.set(g.id, finalScore);
+        updateBestChip(g);
+      }
+      const over = document.createElement('div');
+      over.className = 'gm-over';
+      over.innerHTML = `
+        <h4>${opts.title || 'Game over'}</h4>
+        ${finalScore !== null ? `<p class="go-score">${opts.scoreText || `Score: ${finalScore} ${g.unit}`}</p>` : ''}
+        ${isRecord ? '<span class="go-record">★ New best!</span>' : ''}
+        <button class="btn btn-primary">Play again</button>`;
+      over.querySelector('button').addEventListener('click', () => restartGame());
+      stage.appendChild(over);
+      if (isRecord) toast(`🏆 New ${g.name} record: ${finalScore} ${g.unit}`);
+    },
+  };
 }
 
-function applyReduceMotion() {
-  document.body.classList.toggle('reduce-motion', state.reduceMotion);
+function mount(g) {
+  stage.innerHTML = '';
+  $('#gmScore').textContent = 'Score 0';
+  current = { game: g, instance: g.factory(stage, makeApi(g)) };
 }
 
-// ═══════════════════════════════════════════════════
-// STREAK & XP HELPERS
-// ═══════════════════════════════════════════════════
-function updateStreak() {
-  const today = new Date().toDateString();
-  if (state.lastActiveDate === today) return;
-  const yesterday = new Date(Date.now() - 86400000).toDateString();
-  if (state.lastActiveDate === yesterday) {
-    state.streak = (state.streak || 0) + 1;
-  } else if (state.lastActiveDate !== today) {
-    state.streak = state.lastActiveDate ? 0 : (state.streak || 0);
+function openGame(id) {
+  const g = GAMES.find(x => x.id === id);
+  if (!g) return;
+  $('#gmTitle').textContent = `${g.emoji} ${g.name}`;
+  $('#gmControls').textContent = g.controls;
+  updateBestChip(g);
+  modal.classList.add('open');
+  modal.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  mount(g);
+}
+
+function restartGame() {
+  if (current) mount(current.game);
+}
+
+function closeGame() {
+  current?.instance?.destroy?.();
+  current = null;
+  stage.innerHTML = '';
+  modal.classList.remove('open');
+  modal.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  renderGrid($('#filterChips .active')?.dataset.filter || 'all');
+}
+
+$('#gmBack').addEventListener('click', closeGame);
+$('#gmRestart').addEventListener('click', restartGame);
+modal.addEventListener('click', e => { if (e.target === modal) closeGame(); });
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && modal.classList.contains('open')) closeGame();
+});
+
+/* Shared: swipe detection */
+function onSwipe(el, cb) {
+  let sx = 0, sy = 0;
+  const start = e => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; };
+  const end = e => {
+    const dx = e.changedTouches[0].clientX - sx;
+    const dy = e.changedTouches[0].clientY - sy;
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < 24) return;
+    cb(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'));
+  };
+  el.addEventListener('touchstart', start, { passive: true });
+  el.addEventListener('touchend', end, { passive: true });
+  return () => { el.removeEventListener('touchstart', start); el.removeEventListener('touchend', end); };
+}
+
+/* ═══════════════════ SNAKE ═══════════════════ */
+
+function snakeGame(stage, api) {
+  const N = 20, CELL = 20;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = N * CELL;
+  cv.style.maxWidth = '420px';
+  cv.style.width = '100%';
+  stage.appendChild(cv);
+  const ctx = cv.getContext('2d');
+
+  let snake = [{ x: 9, y: 10 }, { x: 8, y: 10 }, { x: 7, y: 10 }];
+  let dir = { x: 1, y: 0 }, pending = dir;
+  let food = spawnFood();
+  let score = 0, dead = false, delay = 130, timer = null;
+
+  function spawnFood() {
+    let f;
+    do { f = { x: (Math.random() * N) | 0, y: (Math.random() * N) | 0 }; }
+    while (snake.some(s => s.x === f.x && s.y === f.y));
+    return f;
   }
-  state.lastActiveDate = today;
-  saveState();
-}
 
-function awardXP(amount, label) {
-  state.totalXP = (state.totalXP || 0) + amount;
-  saveState();
-  if (state.xpAnimations) showXPToast(`+${amount} XP — ${label}`);
-  // Update stat displays
-  const el = document.getElementById('statXP');
-  if (el) animateCount(el, state.totalXP - amount, state.totalXP);
-}
-
-function animateCount(el, from, to) {
-  const dur = 600;
-  const start = performance.now();
-  function step(now) {
-    const t = Math.min((now - start) / dur, 1);
-    const eased = 1 - Math.pow(1 - t, 3);
-    el.textContent = Math.round(from + (to - from) * eased);
-    if (t < 1) requestAnimationFrame(step);
-  }
-  requestAnimationFrame(step);
-}
-
-function showXPToast(message) {
-  const toast = document.getElementById('xpToast');
-  toast.textContent = message;
-  toast.classList.add('show');
-  setTimeout(() => toast.classList.remove('show'), 2800);
-}
-
-// ═══════════════════════════════════════════════════
-// GREETING
-// ═══════════════════════════════════════════════════
-function setDashboardGreeting() {
-  const h = new Date().getHours();
-  const tod = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
-  const name = state.displayName || 'Learner';
-  const el = document.getElementById('dashGreeting');
-  if (el) el.textContent = `Good ${tod}, ${name}`;
-}
-
-// ═══════════════════════════════════════════════════
-// NAVIGATION
-// ═══════════════════════════════════════════════════
-function wireNavigation() {
-  document.querySelectorAll('[data-page]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const page = btn.dataset.page;
-      navigateTo(page);
-      // Close mobile menu
-      closeMobileMenu();
-    });
-  });
-
-  document.getElementById('backToLearning').addEventListener('click', () => navigateTo('learning'));
-  document.getElementById('dailyChallengeBtn').addEventListener('click', () => {
-    navigateTo('quiz');
-    setTimeout(() => {
-      const firstCard = document.querySelector('.quiz-card');
-      if (firstCard) firstCard.click();
-    }, 100);
-  });
-}
-
-function navigateTo(page) {
-  // Update pages
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  const target = document.getElementById(`page-${page}`);
-  if (target) target.classList.add('active');
-
-  // Update nav items
-  document.querySelectorAll('.nav-item').forEach(n => {
-    n.classList.toggle('active', n.dataset.page === page);
-  });
-
-  // Re-render dynamic pages
-  if (page === 'home') { renderDashboard(); setDashboardGreeting(); }
-  if (page === 'progress') renderProgress();
-  if (page === 'profile') renderProfile();
-  if (page === 'settings') syncSettingsUI();
-
-  // Scroll to top
-  document.getElementById('mainContent').scrollTop = 0;
-  window.scrollTo(0, 0);
-}
-
-// ═══════════════════════════════════════════════════
-// MOBILE MENU
-// ═══════════════════════════════════════════════════
-function wireMobileMenu() {
-  const btn = document.getElementById('hamburgerBtn');
-  const overlay = document.getElementById('sidebarOverlay');
-  const mobileSearch = document.getElementById('mobileSearchBtn');
-
-  btn.addEventListener('click', toggleMobileMenu);
-  overlay.addEventListener('click', closeMobileMenu);
-  mobileSearch.addEventListener('click', openSearch);
-}
-
-function toggleMobileMenu() {
-  const sidebar = document.getElementById('sidebar');
-  const btn = document.getElementById('hamburgerBtn');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.toggle('open');
-  btn.classList.toggle('open');
-  overlay.classList.toggle('visible');
-}
-
-function closeMobileMenu() {
-  const sidebar = document.getElementById('sidebar');
-  const btn = document.getElementById('hamburgerBtn');
-  const overlay = document.getElementById('sidebarOverlay');
-  sidebar.classList.remove('open');
-  btn.classList.remove('open');
-  overlay.classList.remove('visible');
-}
-
-// ═══════════════════════════════════════════════════
-// SEARCH
-// ═══════════════════════════════════════════════════
-function wireSearch() {
-  const wrap = document.getElementById('searchBarWrap');
-  const input = document.getElementById('searchInput');
-  const results = document.getElementById('searchResults');
-
-  document.getElementById('searchToggle').addEventListener('click', openSearch);
-  document.getElementById('searchToggle2')?.addEventListener('click', openSearch);
-
-  // Close on overlay click or Escape
-  wrap.addEventListener('click', (e) => { if (e.target === wrap) closeSearch(); });
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeSearch();
-    if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); openSearch(); }
-  });
-
-  input.addEventListener('input', () => {
-    const q = input.value.trim().toLowerCase();
-    if (!q) { results.innerHTML = ''; return; }
-
-    const hits = LESSONS.filter(l =>
-      l.title.toLowerCase().includes(q) ||
-      l.description.toLowerCase().includes(q) ||
-      l.category.toLowerCase().includes(q)
-    ).slice(0, 6);
-
-    const quizHits = QUIZZES.filter(qz =>
-      qz.title.toLowerCase().includes(q) ||
-      qz.description.toLowerCase().includes(q)
-    ).slice(0, 3);
-
-    if (!hits.length && !quizHits.length) {
-      results.innerHTML = `<div class="search-result-item"><div class="search-result-text"><div class="search-result-title">No results found</div></div></div>`;
+  function tick() {
+    if (!(pending.x === -dir.x && pending.y === -dir.y)) dir = pending;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    if (head.x < 0 || head.y < 0 || head.x >= N || head.y >= N ||
+        snake.some(s => s.x === head.x && s.y === head.y)) {
+      dead = true;
+      clearInterval(timer);
+      api.gameOver(score);
       return;
     }
-
-    results.innerHTML = [
-      ...hits.map(l => `
-        <div class="search-result-item" data-action="lesson" data-id="${l.id}">
-          <div class="search-result-icon">${l.emoji}</div>
-          <div class="search-result-text">
-            <div class="search-result-title">${l.title}</div>
-            <div class="search-result-sub">Lesson · ${l.category}</div>
-          </div>
-        </div>`),
-      ...quizHits.map(qz => `
-        <div class="search-result-item" data-action="quiz" data-id="${qz.id}">
-          <div class="search-result-icon">${qz.icon}</div>
-          <div class="search-result-text">
-            <div class="search-result-title">${qz.title}</div>
-            <div class="search-result-sub">Quiz · ${qz.questions} questions</div>
-          </div>
-        </div>`)
-    ].join('');
-
-    results.querySelectorAll('.search-result-item').forEach(item => {
-      item.addEventListener('click', () => {
-        closeSearch();
-        if (item.dataset.action === 'lesson') openLesson(item.dataset.id);
-        if (item.dataset.action === 'quiz') startQuiz(item.dataset.id);
-      });
-    });
-  });
-}
-
-function openSearch() {
-  const wrap = document.getElementById('searchBarWrap');
-  wrap.classList.add('open');
-  setTimeout(() => document.getElementById('searchInput').focus(), 50);
-}
-
-function closeSearch() {
-  const wrap = document.getElementById('searchBarWrap');
-  wrap.classList.remove('open');
-  document.getElementById('searchInput').value = '';
-  document.getElementById('searchResults').innerHTML = '';
-}
-
-// ═══════════════════════════════════════════════════
-// DASHBOARD
-// ═══════════════════════════════════════════════════
-function renderDashboard() {
-  // Stats
-  document.getElementById('statLessons').textContent = state.completedLessons.length;
-  document.getElementById('statQuizzes').textContent = state.quizHistory.length;
-  document.getElementById('statStreak').textContent = state.streak;
-  document.getElementById('statXP').textContent = state.totalXP;
-
-  // Continue learning: show in-progress or first few lessons
-  const grid = document.getElementById('continueLearningGrid');
-  const toShow = LESSONS.filter(l => !state.completedLessons.includes(l.id)).slice(0, 3);
-  if (!toShow.length) {
-    grid.innerHTML = `<div class="empty-state"><div class="empty-state-icon">✨</div><p>All lessons complete! You're amazing.</p></div>`;
-    return;
+    snake.unshift(head);
+    if (head.x === food.x && head.y === food.y) {
+      score += 10;
+      api.setScore(score);
+      food = spawnFood();
+      if (delay > 70) { delay -= 2; clearInterval(timer); timer = setInterval(tick, delay); }
+    } else {
+      snake.pop();
+    }
+    draw();
   }
-  grid.innerHTML = toShow.map(l => lessonCardHTML(l)).join('');
-  grid.querySelectorAll('.lesson-card').forEach(card => {
-    card.addEventListener('click', () => openLesson(card.dataset.id));
-  });
-}
 
-// ═══════════════════════════════════════════════════
-// LESSONS
-// ═══════════════════════════════════════════════════
-function renderLessonsGrid(filter) {
-  const grid = document.getElementById('lessonsGrid');
-  const filtered = filter === 'all' ? LESSONS : LESSONS.filter(l => l.category === filter);
-  grid.innerHTML = filtered.map(l => lessonCardHTML(l)).join('');
-  grid.querySelectorAll('.lesson-card').forEach(card => {
-    card.addEventListener('click', () => openLesson(card.dataset.id));
-  });
-}
+  function draw() {
+    ctx.fillStyle = '#090b16';
+    ctx.fillRect(0, 0, cv.width, cv.height);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    for (let i = 1; i < N; i++) {
+      ctx.beginPath(); ctx.moveTo(i * CELL, 0); ctx.lineTo(i * CELL, cv.height); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * CELL); ctx.lineTo(cv.width, i * CELL); ctx.stroke();
+    }
+    // food
+    ctx.shadowColor = '#f472b6'; ctx.shadowBlur = 14;
+    ctx.fillStyle = '#f472b6';
+    ctx.beginPath();
+    ctx.arc(food.x * CELL + CELL / 2, food.y * CELL + CELL / 2, CELL / 2 - 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // snake
+    snake.forEach((s, i) => {
+      const t = i / snake.length;
+      ctx.fillStyle = i === 0 ? '#a7f3d0' : `rgb(${52 - 20 * t | 0}, ${211 - 90 * t | 0}, ${153 - 60 * t | 0})`;
+      const pad = i === 0 ? 1 : 2;
+      roundRect(ctx, s.x * CELL + pad, s.y * CELL + pad, CELL - pad * 2, CELL - pad * 2, 5);
+    });
+  }
 
-function lessonCardHTML(lesson) {
-  const prog = state.lessonProgress[lesson.id] || 0;
-  const done = state.completedLessons.includes(lesson.id);
-  const bannerColors = {
-    math: 'linear-gradient(135deg, #0f172a 0%, #1e3a5f 100%)',
-    science: 'linear-gradient(135deg, #0f1f1a 0%, #064e3b 100%)',
-    code: 'linear-gradient(135deg, #1a0f2e 0%, #3b1f6e 100%)',
-    history: 'linear-gradient(135deg, #1f1008 0%, #5f2b05 100%)',
-    language: 'linear-gradient(135deg, #1a0f1f 0%, #6e1f5c 100%)',
+  function keys(e) {
+    const map = {
+      ArrowUp: [0, -1], KeyW: [0, -1],
+      ArrowDown: [0, 1], KeyS: [0, 1],
+      ArrowLeft: [-1, 0], KeyA: [-1, 0],
+      ArrowRight: [1, 0], KeyD: [1, 0],
+    };
+    const m = map[e.code];
+    if (m) { e.preventDefault(); pending = { x: m[0], y: m[1] }; }
+  }
+  window.addEventListener('keydown', keys);
+  const offSwipe = onSwipe(cv, d => {
+    pending = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }[d];
+  });
+
+  draw();
+  timer = setInterval(tick, delay);
+
+  return {
+    destroy() {
+      clearInterval(timer);
+      window.removeEventListener('keydown', keys);
+      offSwipe();
+    },
   };
-  const bg = bannerColors[lesson.category] || bannerColors.math;
-
-  return `
-    <div class="lesson-card" data-id="${lesson.id}">
-      <div class="lesson-card-banner" style="background: ${bg}">
-        ${lesson.emoji}
-        ${done ? '<div style="position:absolute;top:10px;right:10px;background:rgba(16,185,129,0.9);color:#fff;font-size:11px;font-weight:700;padding:3px 8px;border-radius:99px;z-index:1">✓ Done</div>' : ''}
-      </div>
-      <div class="lesson-card-body">
-        <p class="lesson-card-category">${lesson.category}</p>
-        <h3 class="lesson-card-title">${lesson.title}</h3>
-        <div class="lesson-card-meta">
-          <span class="difficulty-badge diff-${lesson.difficulty}">${lesson.difficulty}</span>
-          <span>${lesson.duration} · ${lesson.xp} XP</span>
-        </div>
-        <div class="lesson-progress-bar">
-          <div class="lesson-progress-fill" style="width: ${done ? 100 : prog}%"></div>
-        </div>
-      </div>
-    </div>`;
 }
 
-// Category filter
-document.getElementById('categoryFilter').addEventListener('click', (e) => {
-  const chip = e.target.closest('.filter-chip');
-  if (!chip) return;
-  document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
-  chip.classList.add('active');
-  renderLessonsGrid(chip.dataset.filter);
-});
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h);
+  ctx.fill();
+}
 
-// ─── LESSON VIEWER ───
-function openLesson(id) {
-  const lesson = LESSONS.find(l => l.id === id);
-  if (!lesson) return;
+/* ═══════════════════ 2048 ═══════════════════ */
 
-  const viewer = document.getElementById('lessonViewer');
-  const done = state.completedLessons.includes(id);
+function game2048(stage, api) {
+  const board = document.createElement('div');
+  board.className = 'board-2048';
+  stage.appendChild(board);
 
-  const contentHTML = lesson.content.map(block => {
-    if (block.type === 'text') {
-      return `<div class="lesson-content-block">
-        ${block.heading ? `<h3>${block.heading}</h3>` : ''}
-        ${block.body.split('\n\n').map(p => `<p>${p}</p>`).join('')}
-      </div>`;
-    }
-    if (block.type === 'concept') {
-      return `<div class="lesson-content-block">
-        <div class="lesson-key-concept">${block.text}</div>
-      </div>`;
-    }
-    if (block.type === 'code') {
-      return `<div class="lesson-content-block">
-        <div class="lesson-code-block">${escapeHTML(block.text)}</div>
-      </div>`;
-    }
-    return '';
-  }).join('');
+  let grid = Array.from({ length: 4 }, () => [0, 0, 0, 0]);
+  let score = 0, over = false, won = false;
 
-  viewer.innerHTML = `
-    <div class="lesson-viewer-header">
-      <div class="lesson-viewer-banner-emoji">${lesson.emoji}</div>
-      <p class="lesson-viewer-category">${lesson.category}</p>
-      <h1 class="lesson-viewer-title">${lesson.title}</h1>
-      <div class="lesson-viewer-meta">
-        <span>⏱ ${lesson.duration}</span>
-        <span class="difficulty-badge diff-${lesson.difficulty}">${lesson.difficulty}</span>
-        <span>⬡ ${lesson.xp} XP</span>
-      </div>
-    </div>
-    ${contentHTML}
-    <div class="lesson-complete-bar">
-      <p>${done ? '<strong>✓ Lesson completed!</strong> You\'ve already earned the XP.' : 'Ready to mark this lesson as complete?'}</p>
-      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
-        ${!done ? `<button class="btn-primary" id="markCompleteBtn">Mark Complete · +${lesson.xp} XP</button>` : '<span style="color:var(--accent);font-size:14px;font-weight:600">✓ Complete</span>'}
-        <button class="btn-secondary" id="goToRelatedQuiz">Take a Quiz →</button>
-      </div>
-    </div>`;
+  addTile(); addTile(); render();
 
-  if (!done) {
-    document.getElementById('markCompleteBtn').addEventListener('click', () => {
-      completeLesson(id);
-      openLesson(id); // re-render to show complete state
-    });
+  function addTile() {
+    const empty = [];
+    grid.forEach((row, r) => row.forEach((v, c) => { if (!v) empty.push([r, c]); }));
+    if (!empty.length) return;
+    const [r, c] = empty[(Math.random() * empty.length) | 0];
+    grid[r][c] = Math.random() < 0.9 ? 2 : 4;
   }
-  document.getElementById('goToRelatedQuiz').addEventListener('click', () => navigateTo('quiz'));
 
-  navigateTo('lesson');
-}
+  function render() {
+    board.innerHTML = grid.flat()
+      .map(v => `<div class="t2048" ${v ? `data-v="${v}"` : ''}>${v || ''}</div>`)
+      .join('');
+  }
 
-function completeLesson(id) {
-  const lesson = LESSONS.find(l => l.id === id);
-  if (!lesson || state.completedLessons.includes(id)) return;
-  state.completedLessons.push(id);
-  state.lessonProgress[id] = 100;
-  saveState();
-  awardXP(lesson.xp, lesson.title);
-}
-
-function escapeHTML(str) {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-}
-
-// ═══════════════════════════════════════════════════
-// QUIZZES
-// ═══════════════════════════════════════════════════
-function renderQuizList() {
-  const container = document.getElementById('quizContainer');
-  container.innerHTML = QUIZZES.map(qz => {
-    const taken = state.quizHistory.filter(h => h.quizId === qz.id).length;
-    const best = state.quizHistory
-      .filter(h => h.quizId === qz.id)
-      .reduce((acc, h) => Math.max(acc, Math.round(h.score / h.total * 100)), 0);
-    return `
-      <div class="quiz-card" data-quiz-id="${qz.id}">
-        <div class="quiz-card-icon">${qz.icon}</div>
-        <h3 class="quiz-card-title">${qz.title}</h3>
-        <p class="quiz-card-desc">${qz.description}</p>
-        <div class="quiz-card-meta">
-          <span>◎ ${qz.questions} questions</span>
-          <span>⬡ ${qz.xp} XP</span>
-          ${taken ? `<span style="color:var(--accent)">Best: ${best}%</span>` : ''}
-        </div>
-      </div>`;
-  }).join('');
-
-  container.querySelectorAll('.quiz-card').forEach(card => {
-    card.addEventListener('click', () => startQuiz(card.dataset.quizId));
-  });
-}
-
-// ─── QUIZ RUNNER ───
-let currentQuiz = null;
-let currentQIndex = 0;
-let currentAnswers = [];
-
-function startQuiz(quizId) {
-  currentQuiz = QUIZZES.find(q => q.id === quizId);
-  if (!currentQuiz) return;
-  currentQIndex = 0;
-  currentAnswers = new Array(currentQuiz.items.length).fill(null);
-  navigateTo('quiz-active');
-  renderQuizQuestion();
-}
-
-function renderQuizQuestion() {
-  const wrap = document.getElementById('quizActiveWrap');
-  const q = currentQuiz.items[currentQIndex];
-  const total = currentQuiz.items.length;
-  const pct = (currentQIndex / total) * 100;
-  const answered = currentAnswers[currentQIndex];
-
-  wrap.innerHTML = `
-    <div class="quiz-progress-header">
-      <button class="back-btn" id="quizBackBtn">← Quit Quiz</button>
-      <span>Question ${currentQIndex + 1} of ${total}</span>
-    </div>
-    <div class="quiz-progress-track">
-      <div class="quiz-progress-fill" style="width:${pct}%"></div>
-    </div>
-    <div class="quiz-question-card">
-      <p class="quiz-q-num">${currentQuiz.title}</p>
-      <h2 class="quiz-question">${q.q}</h2>
-      <div class="quiz-options">
-        ${q.options.map((opt, i) => `
-          <button class="quiz-option ${answered !== null ? (i === q.answer ? 'correct' : (i === answered ? 'wrong' : '')) : ''}"
-            data-index="${i}" ${answered !== null ? 'disabled' : ''}>
-            ${opt}
-          </button>`).join('')}
-      </div>
-      ${answered !== null ? `
-        <div class="quiz-feedback ${answered === q.answer ? 'correct' : 'wrong'}">
-          ${answered === q.answer ? '✓ Correct! ' : '✗ Incorrect. '} ${q.explanation}
-        </div>` : ''}
-    </div>
-    <div class="quiz-nav">
-      ${answered !== null ? `
-        <button class="btn-primary" id="quizNextBtn">
-          ${currentQIndex < total - 1 ? 'Next Question →' : 'See Results →'}
-        </button>` : ''}
-    </div>`;
-
-  document.getElementById('quizBackBtn').addEventListener('click', () => navigateTo('quiz'));
-
-  if (answered === null) {
-    wrap.querySelectorAll('.quiz-option').forEach(opt => {
-      opt.addEventListener('click', () => {
-        const idx = parseInt(opt.dataset.index);
-        currentAnswers[currentQIndex] = idx;
-        renderQuizQuestion();
-      });
-    });
-  } else {
-    document.getElementById('quizNextBtn')?.addEventListener('click', () => {
-      if (currentQIndex < currentQuiz.items.length - 1) {
-        currentQIndex++;
-        renderQuizQuestion();
-      } else {
-        showQuizResults();
+  function slideRow(row) {
+    const vals = row.filter(v => v);
+    for (let i = 0; i < vals.length - 1; i++) {
+      if (vals[i] === vals[i + 1]) {
+        vals[i] *= 2;
+        score += vals[i];
+        if (vals[i] === 2048 && !won) { won = true; toast('🎉 You made 2048! Keep going…'); }
+        vals.splice(i + 1, 1);
       }
-    });
+    }
+    while (vals.length < 4) vals.push(0);
+    return vals;
   }
+
+  function move(dirKey) {
+    if (over) return;
+    const before = JSON.stringify(grid);
+    const rotate = g => g[0].map((_, c) => g.map(row => row[c]).reverse()); // CW
+    let g = grid.map(r => [...r]);
+    const rot = { left: 0, up: 3, right: 2, down: 1 }[dirKey];
+    for (let i = 0; i < rot; i++) g = rotate(g);
+    g = g.map(slideRow);
+    for (let i = 0; i < (4 - rot) % 4; i++) g = rotate(g);
+    if (JSON.stringify(g) === before) return;
+    grid = g;
+    addTile();
+    api.setScore(score);
+    render();
+    if (!hasMoves()) { over = true; api.gameOver(score); }
+  }
+
+  function hasMoves() {
+    for (let r = 0; r < 4; r++)
+      for (let c = 0; c < 4; c++) {
+        if (!grid[r][c]) return true;
+        if (c < 3 && grid[r][c] === grid[r][c + 1]) return true;
+        if (r < 3 && grid[r][c] === grid[r + 1][c]) return true;
+      }
+    return false;
+  }
+
+  function keys(e) {
+    const map = { ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'up', ArrowDown: 'down' };
+    if (map[e.key]) { e.preventDefault(); move(map[e.key]); }
+  }
+  window.addEventListener('keydown', keys);
+  const offSwipe = onSwipe(board, move);
+
+  return {
+    destroy() {
+      window.removeEventListener('keydown', keys);
+      offSwipe();
+    },
+  };
 }
 
-function showQuizResults() {
-  const correct = currentAnswers.filter((ans, i) => ans === currentQuiz.items[i].answer).length;
-  const total = currentQuiz.items.length;
-  const pct = Math.round((correct / total) * 100);
-  const earnedXP = Math.round(currentQuiz.xp * (correct / total));
+/* ═══════════════════ BREAKOUT ═══════════════════ */
 
-  // Save history
-  state.quizHistory.push({
-    quizId: currentQuiz.id,
-    score: correct,
-    total,
-    date: new Date().toISOString()
-  });
-  saveState();
-  awardXP(earnedXP, `${currentQuiz.title} Quiz`);
+function breakoutGame(stage, api) {
+  const W = 480, H = 400;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  cv.style.maxWidth = '480px';
+  cv.style.width = '100%';
+  stage.appendChild(cv);
+  const ctx = cv.getContext('2d');
 
-  const wrap = document.getElementById('quizActiveWrap');
-  wrap.innerHTML = `
-    <div class="quiz-results">
-      <div class="quiz-results-score">${pct}%</div>
-      <div class="quiz-results-label">${correct} out of ${total} correct</div>
-      <div class="quiz-results-detail">You earned <strong style="color:var(--accent)">${earnedXP} XP</strong></div>
-      <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
-        <button class="btn-primary" id="retryQuizBtn">Try Again</button>
-        <button class="btn-secondary" id="backToQuizzesBtn">All Quizzes</button>
-      </div>
-    </div>`;
+  const COLS = 8, ROWS = 5, BW = 47, BH = 16, GAP = 8, TOP = 46, SIDE = 24;
+  const COLORS = ['#f472b6', '#fb7185', '#fbbf24', '#34d399', '#22d3ee'];
 
-  document.getElementById('retryQuizBtn').addEventListener('click', () => startQuiz(currentQuiz.id));
-  document.getElementById('backToQuizzesBtn').addEventListener('click', () => {
-    renderQuizList();
-    navigateTo('quiz');
-  });
+  let paddle = { w: 84, h: 12, x: W / 2 - 42 };
+  let ball, bricks, score = 0, lives = 3, level = 1, speed = 4;
+  let launched = false, raf = null, dead = false;
+
+  function resetBall() {
+    ball = { x: W / 2, y: H - 60, r: 7, dx: 0, dy: 0 };
+    launched = false;
+  }
+  function buildBricks() {
+    bricks = [];
+    for (let r = 0; r < ROWS; r++)
+      for (let c = 0; c < COLS; c++)
+        bricks.push({ x: SIDE + c * (BW + GAP), y: TOP + r * (BH + GAP), alive: true, color: COLORS[r] });
+  }
+
+  function launch() {
+    if (launched || dead) return;
+    launched = true;
+    const angle = -Math.PI / 4 - Math.random() * Math.PI / 2;
+    ball.dx = Math.cos(angle) * speed;
+    ball.dy = Math.sin(angle) * speed;
+  }
+
+  function step() {
+    if (launched) {
+      ball.x += ball.dx; ball.y += ball.dy;
+      if (ball.x - ball.r < 0) { ball.x = ball.r; ball.dx *= -1; }
+      if (ball.x + ball.r > W) { ball.x = W - ball.r; ball.dx *= -1; }
+      if (ball.y - ball.r < 0) { ball.y = ball.r; ball.dy *= -1; }
+      // paddle
+      const py = H - 26;
+      if (ball.dy > 0 && ball.y + ball.r >= py && ball.y + ball.r <= py + paddle.h + 6 &&
+          ball.x >= paddle.x - ball.r && ball.x <= paddle.x + paddle.w + ball.r) {
+        const hit = (ball.x - (paddle.x + paddle.w / 2)) / (paddle.w / 2);
+        const ang = hit * (Math.PI / 3);
+        const sp = Math.hypot(ball.dx, ball.dy);
+        ball.dx = Math.sin(ang) * sp;
+        ball.dy = -Math.abs(Math.cos(ang) * sp);
+        ball.y = py - ball.r;
+      }
+      // bricks
+      for (const b of bricks) {
+        if (!b.alive) continue;
+        if (ball.x + ball.r > b.x && ball.x - ball.r < b.x + BW &&
+            ball.y + ball.r > b.y && ball.y - ball.r < b.y + BH) {
+          b.alive = false;
+          score += 10;
+          api.setScore(score);
+          const overlapX = Math.min(ball.x + ball.r - b.x, b.x + BW - (ball.x - ball.r));
+          const overlapY = Math.min(ball.y + ball.r - b.y, b.y + BH - (ball.y - ball.r));
+          if (overlapX < overlapY) ball.dx *= -1; else ball.dy *= -1;
+          break;
+        }
+      }
+      if (bricks.every(b => !b.alive)) {
+        level++;
+        speed += 0.6;
+        buildBricks();
+        resetBall();
+        toast(`🧱 Level ${level}! Speed up.`);
+      }
+      if (ball.y - ball.r > H) {
+        lives--;
+        if (lives <= 0) {
+          dead = true;
+          api.gameOver(score);
+          return;
+        }
+        resetBall();
+      }
+    } else if (!dead) {
+      ball.x = paddle.x + paddle.w / 2;
+      ball.y = H - 40;
+    }
+    draw();
+    raf = requestAnimationFrame(step);
+  }
+
+  function draw() {
+    ctx.fillStyle = '#090b16';
+    ctx.fillRect(0, 0, W, H);
+    for (const b of bricks) {
+      if (!b.alive) continue;
+      ctx.fillStyle = b.color;
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(b.x, b.y, BW, BH, 4) : ctx.rect(b.x, b.y, BW, BH);
+      ctx.fill();
+    }
+    // paddle
+    const g = ctx.createLinearGradient(paddle.x, 0, paddle.x + paddle.w, 0);
+    g.addColorStop(0, '#8b5cf6'); g.addColorStop(1, '#22d3ee');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(paddle.x, H - 26, paddle.w, paddle.h, 6) : ctx.rect(paddle.x, H - 26, paddle.w, paddle.h);
+    ctx.fill();
+    // ball
+    ctx.shadowColor = '#eef0ff'; ctx.shadowBlur = 12;
+    ctx.fillStyle = '#eef0ff';
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    // lives + level
+    ctx.font = '14px "Space Grotesk", sans-serif';
+    ctx.fillStyle = '#9aa1c0';
+    ctx.textAlign = 'left';
+    ctx.fillText('♥'.repeat(lives), 12, 24);
+    ctx.textAlign = 'right';
+    ctx.fillText(`LVL ${level}`, W - 12, 24);
+    if (!launched && !dead) {
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#eef0ff';
+      ctx.font = '16px "Space Grotesk", sans-serif';
+      ctx.fillText('Click or press Space to launch', W / 2, H / 2 + 40);
+    }
+  }
+
+  function setPaddle(clientX) {
+    const rect = cv.getBoundingClientRect();
+    const x = (clientX - rect.left) * (W / rect.width);
+    paddle.x = Math.max(0, Math.min(W - paddle.w, x - paddle.w / 2));
+  }
+  const onMove = e => setPaddle(e.clientX);
+  const onTouch = e => { setPaddle(e.touches[0].clientX); e.preventDefault(); };
+  const onKey = e => { if (e.code === 'Space') { e.preventDefault(); launch(); } };
+  cv.addEventListener('mousemove', onMove);
+  cv.addEventListener('touchmove', onTouch, { passive: false });
+  cv.addEventListener('touchstart', e => { onTouch(e); launch(); }, { passive: false });
+  cv.addEventListener('click', launch);
+  window.addEventListener('keydown', onKey);
+
+  buildBricks();
+  resetBall();
+  raf = requestAnimationFrame(step);
+
+  return {
+    destroy() {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKey);
+    },
+  };
 }
 
-// ═══════════════════════════════════════════════════
-// PROGRESS PAGE
-// ═══════════════════════════════════════════════════
-function renderProgress() {
-  const container = document.getElementById('progressContent');
-  const totalLessons = LESSONS.length;
-  const done = state.completedLessons.length;
-  const pct = totalLessons ? Math.round((done / totalLessons) * 100) : 0;
-  const quizzesTaken = state.quizHistory.length;
-  const avgScore = quizzesTaken
-    ? Math.round(state.quizHistory.reduce((a, h) => a + h.score / h.total * 100, 0) / quizzesTaken)
-    : 0;
+/* ═══════════════════ FLAPPY ═══════════════════ */
 
-  // Progress by category
-  const categories = ['math', 'science', 'code', 'history', 'language'];
-  const catLabels = { math: 'Mathematics', science: 'Science', code: 'Programming', history: 'History', language: 'Language' };
+function flappyGame(stage, api) {
+  const W = 360, H = 500;
+  const cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  cv.style.maxWidth = '360px';
+  cv.style.width = '100%';
+  stage.appendChild(cv);
+  const ctx = cv.getContext('2d');
 
-  const topicBars = categories.map(cat => {
-    const catLessons = LESSONS.filter(l => l.category === cat);
-    const catDone = catLessons.filter(l => state.completedLessons.includes(l.id)).length;
-    const catPct = catLessons.length ? Math.round(catDone / catLessons.length * 100) : 0;
-    return `
-      <div class="topic-progress-item">
-        <div class="topic-progress-header">
-          <span class="topic-progress-name">${catLabels[cat]}</span>
-          <span class="topic-progress-pct">${catPct}%</span>
+  const GRAV = 0.45, FLAP = -7.6, GAP = 150, PW = 58, SPEED = 2.6;
+  let bird, pipes, score, started, dead, raf = null, wobble = 0;
+
+  function reset() {
+    bird = { x: 90, y: H / 2, vy: 0, r: 14 };
+    pipes = [];
+    score = 0; started = false; dead = false;
+    api.setScore(0);
+  }
+
+  function flap() {
+    if (dead) return;
+    if (!started) started = true;
+    bird.vy = FLAP;
+  }
+
+  function step() {
+    wobble += 0.08;
+    if (started && !dead) {
+      bird.vy += GRAV;
+      bird.y += bird.vy;
+      if (!pipes.length || pipes[pipes.length - 1].x < W - 210) {
+        const top = 60 + Math.random() * (H - GAP - 180);
+        pipes.push({ x: W + 20, top, passed: false });
+      }
+      for (const p of pipes) {
+        p.x -= SPEED + Math.min(1.4, score * 0.03);
+        if (!p.passed && p.x + PW < bird.x - bird.r) {
+          p.passed = true;
+          score++;
+          api.setScore(score);
+        }
+      }
+      pipes = pipes.filter(p => p.x > -PW - 10);
+      // collisions
+      const hitPipe = pipes.some(p =>
+        bird.x + bird.r > p.x && bird.x - bird.r < p.x + PW &&
+        (bird.y - bird.r < p.top || bird.y + bird.r > p.top + GAP));
+      if (hitPipe || bird.y + bird.r > H - 24 || bird.y - bird.r < 0) {
+        dead = true;
+        api.gameOver(score, { scoreText: `You cleared ${score} pipe${score === 1 ? '' : 's'}` });
+        return;
+      }
+    }
+    draw();
+    raf = requestAnimationFrame(step);
+  }
+
+  function draw() {
+    // sky
+    const sky = ctx.createLinearGradient(0, 0, 0, H);
+    sky.addColorStop(0, '#0b1026'); sky.addColorStop(1, '#122447');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, W, H);
+    // stars
+    ctx.fillStyle = 'rgba(255,255,255,0.35)';
+    for (let i = 0; i < 24; i++) {
+      const sx = (i * 97 + 31) % W, sy = (i * 53 + 17) % (H - 100);
+      ctx.fillRect(sx, sy, 2, 2);
+    }
+    // pipes
+    for (const p of pipes) {
+      const pg = ctx.createLinearGradient(p.x, 0, p.x + PW, 0);
+      pg.addColorStop(0, '#0e7490'); pg.addColorStop(0.5, '#22d3ee'); pg.addColorStop(1, '#0e7490');
+      ctx.fillStyle = pg;
+      ctx.fillRect(p.x, 0, PW, p.top);
+      ctx.fillRect(p.x, p.top + GAP, PW, H - p.top - GAP - 24);
+      ctx.fillStyle = '#67e8f9';
+      ctx.fillRect(p.x - 3, p.top - 10, PW + 6, 10);
+      ctx.fillRect(p.x - 3, p.top + GAP, PW + 6, 10);
+    }
+    // ground
+    ctx.fillStyle = '#1a1e3e';
+    ctx.fillRect(0, H - 24, W, 24);
+    // bird
+    const by = started ? bird.y : bird.y + Math.sin(wobble) * 6;
+    ctx.save();
+    ctx.translate(bird.x, by);
+    ctx.rotate(Math.max(-0.5, Math.min(0.9, bird.vy * 0.06)));
+    ctx.font = '26px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('🐤', 0, 0);
+    ctx.restore();
+    // hint
+    if (!started) {
+      ctx.fillStyle = '#eef0ff';
+      ctx.font = '17px "Space Grotesk", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Tap / click / Space to flap', W / 2, H / 2 - 90);
+    }
+  }
+
+  const onKey = e => { if (e.code === 'Space') { e.preventDefault(); flap(); } };
+  const onDown = e => { e.preventDefault(); flap(); };
+  window.addEventListener('keydown', onKey);
+  cv.addEventListener('mousedown', onDown);
+  cv.addEventListener('touchstart', onDown, { passive: false });
+
+  reset();
+  raf = requestAnimationFrame(step);
+
+  return {
+    destroy() {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('keydown', onKey);
+    },
+  };
+}
+
+/* ═══════════════════ MEMORY MATCH ═══════════════════ */
+
+function memoryGame(stage, api) {
+  const EMOJI = ['🚀', '🌵', '🍕', '🎧', '🐙', '🌈', '⚡', '🎲'];
+  const deck = [...EMOJI, ...EMOJI]
+    .map(e => ({ e, r: Math.random() }))
+    .sort((a, b) => a.r - b.r)
+    .map(x => x.e);
+
+  const board = document.createElement('div');
+  board.className = 'board-mem';
+  board.innerHTML = deck
+    .map((e, i) => `
+      <div class="mem-card" data-i="${i}" data-e="${e}">
+        <div class="mem-inner">
+          <div class="mem-face mem-front">?</div>
+          <div class="mem-face mem-back">${e}</div>
         </div>
-        <div class="topic-bar">
-          <div class="topic-bar-fill" style="width:${catPct}%" data-target="${catPct}"></div>
-        </div>
-      </div>`;
-  }).join('');
+      </div>`)
+    .join('');
+  stage.appendChild(board);
 
-  const achievements = [
-    { icon: '🎯', title: 'First Lesson', desc: 'Complete your first lesson', unlocked: done >= 1 },
-    { icon: '🔥', title: 'On Fire', desc: '3-day streak', unlocked: state.streak >= 3 },
-    { icon: '🏆', title: 'Quiz Master', desc: 'Score 100% on a quiz', unlocked: state.quizHistory.some(h => h.score === h.total) },
-    { icon: '📚', title: 'Bookworm', desc: 'Complete 5 lessons', unlocked: done >= 5 },
-    { icon: '⚡', title: 'Speed Learner', desc: 'Earn 500 XP', unlocked: state.totalXP >= 500 },
-    { icon: '🌟', title: 'All-Rounder', desc: 'Try every category', unlocked: categories.every(cat => LESSONS.some(l => l.category === cat && state.completedLessons.includes(l.id))) },
-    { icon: '🧠', title: 'Knowledge Seeker', desc: 'Complete 10 lessons', unlocked: done >= 10 },
-    { icon: '🚀', title: 'Launched', desc: 'Take your first quiz', unlocked: quizzesTaken >= 1 },
+  let flipped = [], moves = 0, matched = 0, lock = false;
+  api.setScore('Moves 0');
+
+  function onClick(e) {
+    const card = e.target.closest('.mem-card');
+    if (!card || lock || card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    card.classList.add('flipped');
+    flipped.push(card);
+    if (flipped.length < 2) return;
+    moves++;
+    api.setScore(`Moves ${moves}`);
+    const [a, b] = flipped;
+    flipped = [];
+    if (a.dataset.e === b.dataset.e) {
+      a.classList.add('matched'); b.classList.add('matched');
+      a.classList.remove('flipped'); b.classList.remove('flipped');
+      matched++;
+      if (matched === EMOJI.length) {
+        setTimeout(() => api.gameOver(moves, {
+          title: 'You matched them all! 🎉',
+          scoreText: `Finished in ${moves} moves`,
+        }), 450);
+      }
+    } else {
+      lock = true;
+      setTimeout(() => {
+        a.classList.remove('flipped');
+        b.classList.remove('flipped');
+        lock = false;
+      }, 750);
+    }
+  }
+  board.addEventListener('click', onClick);
+
+  return { destroy() { board.removeEventListener('click', onClick); } };
+}
+
+/* ═══════════════════ TIC-TAC-TOE ═══════════════════ */
+
+function tttGame(stage, api) {
+  const LINES = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6],
   ];
+  const HU = 'X', AI = 'O';
+  let board, turn, done, wins = 0, losses = 0, draws = 0;
 
-  container.innerHTML = `
-    <div class="progress-overview">
-      <div class="progress-big-card">
-        <p class="progress-big-label">Overall Progress</p>
-        <div class="progress-big-value">${pct}%</div>
-        <p class="progress-big-sub">${done} / ${totalLessons} lessons</p>
-      </div>
-      <div class="progress-big-card">
-        <p class="progress-big-label">Total XP</p>
-        <div class="progress-big-value">${state.totalXP}</div>
-        <p class="progress-big-sub">Level ${Math.floor(state.totalXP / 200) + 1}</p>
-      </div>
-      <div class="progress-big-card">
-        <p class="progress-big-label">Quiz Average</p>
-        <div class="progress-big-value">${quizzesTaken ? avgScore + '%' : '—'}</div>
-        <p class="progress-big-sub">${quizzesTaken} quizzes taken</p>
-      </div>
-      <div class="progress-big-card">
-        <p class="progress-big-label">Current Streak</p>
-        <div class="progress-big-value">${state.streak}</div>
-        <p class="progress-big-sub">days in a row</p>
-      </div>
+  const wrap = document.createElement('div');
+  wrap.className = 'ttt-wrap';
+  wrap.innerHTML = `
+    <div class="ttt-status" id="tttStatus">Your move — you're X</div>
+    <div class="board-ttt" id="tttBoard">
+      ${Array.from({ length: 9 }, (_, i) => `<button class="ttt-cell" data-i="${i}"></button>`).join('')}
     </div>
+    <button class="btn btn-ghost" id="tttNext" style="visibility:hidden">Next round →</button>`;
+  stage.appendChild(wrap);
+  const cells = [...wrap.querySelectorAll('.ttt-cell')];
+  const status = wrap.querySelector('#tttStatus');
+  const nextBtn = wrap.querySelector('#tttNext');
 
-    <h2 class="progress-section-title">Progress by Topic</h2>
-    <div class="topic-progress-list">${topicBars}</div>
-
-    <h2 class="progress-section-title">Achievements</h2>
-    <div class="achievements-grid">
-      ${achievements.map(a => `
-        <div class="achievement-card ${a.unlocked ? '' : 'locked'}">
-          <div class="achievement-icon">${a.icon}</div>
-          <div class="achievement-title">${a.title}</div>
-          <div class="achievement-desc">${a.desc}</div>
-        </div>`).join('')}
-    </div>`;
-
-  // Animate bars after render
-  requestAnimationFrame(() => {
-    container.querySelectorAll('.topic-bar-fill').forEach(el => {
-      el.style.width = el.dataset.target + '%';
+  function newRound() {
+    board = Array(9).fill(null);
+    turn = HU; done = false;
+    cells.forEach(c => {
+      c.textContent = '';
+      c.disabled = false;
+      c.className = 'ttt-cell';
     });
-  });
-}
-
-// ═══════════════════════════════════════════════════
-// PROFILE PAGE
-// ═══════════════════════════════════════════════════
-function renderProfile() {
-  const container = document.getElementById('profileContent');
-  const done = state.completedLessons.length;
-  const xp = state.totalXP;
-  const level = Math.floor(xp / 200) + 1;
-  const xpInLevel = xp % 200;
-  const quizzesTaken = state.quizHistory.length;
-
-  container.innerHTML = `
-    <div class="profile-hero">
-      <div class="profile-avatar">${state.avatarEmoji}</div>
-      <div style="flex:1">
-        <h1 class="profile-name">${state.displayName || 'Learner'}</h1>
-        <div class="profile-level">Level ${level} Scholar</div>
-        <div class="profile-xp-bar-wrap">
-          <p class="profile-xp-label">${xpInLevel} / 200 XP to next level</p>
-          <div class="profile-xp-bar">
-            <div class="profile-xp-fill" style="width:${(xpInLevel / 200) * 100}%"></div>
-          </div>
-        </div>
-      </div>
-      <button class="btn-secondary" onclick="navigateTo('settings')">Edit Profile →</button>
-    </div>
-
-    <div class="profile-stats-grid">
-      <div class="profile-stat-card">
-        <div class="profile-stat-val">${done}</div>
-        <div class="profile-stat-label">Lessons Complete</div>
-      </div>
-      <div class="profile-stat-card">
-        <div class="profile-stat-val">${xp}</div>
-        <div class="profile-stat-label">Total XP</div>
-      </div>
-      <div class="profile-stat-card">
-        <div class="profile-stat-val">${quizzesTaken}</div>
-        <div class="profile-stat-label">Quizzes Taken</div>
-      </div>
-      <div class="profile-stat-card">
-        <div class="profile-stat-val">${state.streak}</div>
-        <div class="profile-stat-label">Day Streak</div>
-      </div>
-    </div>
-
-    <h2 class="progress-section-title">Recent Activity</h2>
-    ${renderRecentActivity()}`;
-}
-
-function renderRecentActivity() {
-  const activities = [];
-
-  // Merge completed lessons and quiz history, sort by recency (use index as proxy)
-  state.completedLessons.slice(-5).reverse().forEach(id => {
-    const l = LESSONS.find(les => les.id === id);
-    if (l) activities.push({ icon: l.emoji, title: l.title, sub: `Lesson · ${l.xp} XP`, type: 'lesson' });
-  });
-
-  state.quizHistory.slice(-5).reverse().forEach(h => {
-    const qz = QUIZZES.find(q => q.id === h.quizId);
-    if (qz) activities.push({
-      icon: qz.icon,
-      title: qz.title,
-      sub: `Quiz · ${h.score}/${h.total} correct`,
-      type: 'quiz'
-    });
-  });
-
-  if (!activities.length) {
-    return `<div class="empty-state"><div class="empty-state-icon">◑</div><p>No activity yet. Start learning!</p></div>`;
+    status.textContent = "Your move — you're X";
+    nextBtn.style.visibility = 'hidden';
   }
 
-  return `<div class="topic-progress-list">
-    ${activities.slice(0, 6).map(a => `
-      <div class="topic-progress-item" style="display:flex;align-items:center;gap:16px;padding:16px 20px">
-        <span style="font-size:24px">${a.icon}</span>
-        <div>
-          <p style="font-size:14px;font-weight:500">${a.title}</p>
-          <p style="font-size:12px;color:var(--text-3);margin-top:3px">${a.sub}</p>
-        </div>
-      </div>`).join('')}
-  </div>`;
+  function winner(b) {
+    for (const [a, m, z] of LINES)
+      if (b[a] && b[a] === b[m] && b[a] === b[z]) return { p: b[a], line: [a, m, z] };
+    return b.every(v => v) ? { p: 'draw' } : null;
+  }
+
+  function minimax(b, player, depth) {
+    const w = winner(b);
+    if (w) {
+      if (w.p === AI) return { score: 10 - depth };
+      if (w.p === HU) return { score: depth - 10 };
+      return { score: 0 };
+    }
+    let best = null;
+    for (let i = 0; i < 9; i++) {
+      if (b[i]) continue;
+      b[i] = player;
+      const r = minimax(b, player === AI ? HU : AI, depth + 1);
+      b[i] = null;
+      if (!best ||
+          (player === AI && r.score > best.score) ||
+          (player === HU && r.score < best.score)) {
+        best = { score: r.score, move: i };
+      }
+    }
+    return best;
+  }
+
+  function endRound(w) {
+    done = true;
+    cells.forEach(c => (c.disabled = true));
+    if (w.line) w.line.forEach(i => cells[i].classList.add('win'));
+    if (w.p === HU) { wins++; status.textContent = '🎉 You win!'; }
+    else if (w.p === AI) { losses++; status.textContent = '🤖 The AI wins.'; }
+    else { draws++; status.textContent = '🤝 Draw.'; }
+    api.setScore(`W ${wins} · L ${losses} · D ${draws}`);
+    if (w.p === HU) {
+      const prev = store.get('ttt');
+      if (prev === undefined || wins > prev) {
+        store.set('ttt', wins);
+        updateBestChip(GAMES.find(g => g.id === 'ttt'));
+      }
+    }
+    nextBtn.style.visibility = 'visible';
+  }
+
+  function place(i, p) {
+    board[i] = p;
+    cells[i].textContent = p;
+    cells[i].classList.add(p === HU ? 'x' : 'o');
+    cells[i].disabled = true;
+  }
+
+  function onCell(e) {
+    const cell = e.target.closest('.ttt-cell');
+    if (!cell || done || turn !== HU || board[cell.dataset.i]) return;
+    place(+cell.dataset.i, HU);
+    let w = winner(board);
+    if (w) return endRound(w);
+    turn = AI;
+    status.textContent = 'AI is thinking…';
+    setTimeout(() => {
+      // first AI move: pick randomly among decent openings so games vary
+      const empties = board.filter(v => !v).length;
+      let move;
+      if (empties === 8 && Math.random() < 0.5) {
+        const options = [0, 2, 4, 6, 8].filter(i => !board[i]);
+        move = options[(Math.random() * options.length) | 0];
+      } else {
+        move = minimax([...board], AI, 0).move;
+      }
+      place(move, AI);
+      w = winner(board);
+      if (w) return endRound(w);
+      turn = HU;
+      status.textContent = 'Your move';
+    }, 420);
+  }
+
+  wrap.querySelector('#tttBoard').addEventListener('click', onCell);
+  nextBtn.addEventListener('click', newRound);
+  api.setScore(`W 0 · L 0 · D 0`);
+  newRound();
+
+  return { destroy() {} };
 }
 
-// ═══════════════════════════════════════════════════
-// SETTINGS
-// ═══════════════════════════════════════════════════
-function syncSettingsUI() {
-  // Theme buttons
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.theme === state.theme);
-  });
-  // Accent swatches
-  document.querySelectorAll('.swatch').forEach(s => {
-    s.classList.toggle('active', s.dataset.accent === state.accent);
-  });
-  // Toggles
-  document.getElementById('reduceMotionToggle').checked = state.reduceMotion;
-  document.getElementById('xpAnimToggle').checked = state.xpAnimations;
-  // Inputs
-  document.getElementById('displayNameInput').value = state.displayName || '';
-  document.getElementById('dailyGoalSelect').value = state.dailyGoal;
-  // Emoji
-  document.querySelectorAll('.emoji-btn').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.emoji === state.avatarEmoji);
-  });
-}
+/* ═══════════════════ Init ═══════════════════ */
 
-function wireSettings() {
-  // Theme
-  document.querySelectorAll('.theme-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      state.theme = btn.dataset.theme;
-      saveState();
-      applyTheme();
-    });
-  });
+renderGrid();
 
-  // Accent
-  document.getElementById('accentSwatches').addEventListener('click', (e) => {
-    const swatch = e.target.closest('.swatch');
-    if (!swatch) return;
-    state.accent = swatch.dataset.accent;
-    saveState();
-    applyAccent();
-  });
-
-  // Reduce motion
-  document.getElementById('reduceMotionToggle').addEventListener('change', (e) => {
-    state.reduceMotion = e.target.checked;
-    saveState();
-    applyReduceMotion();
-  });
-
-  // XP anim
-  document.getElementById('xpAnimToggle').addEventListener('change', (e) => {
-    state.xpAnimations = e.target.checked;
-    saveState();
-  });
-
-  // Display name
-  document.getElementById('displayNameInput').addEventListener('input', (e) => {
-    state.displayName = e.target.value.trim() || 'Learner';
-    saveState();
-    setDashboardGreeting();
-  });
-
-  // Daily goal
-  document.getElementById('dailyGoalSelect').addEventListener('change', (e) => {
-    state.dailyGoal = parseInt(e.target.value);
-    saveState();
-  });
-
-  // Emoji picker
-  document.getElementById('emojiPicker').addEventListener('click', (e) => {
-    const btn = e.target.closest('.emoji-btn');
-    if (!btn) return;
-    state.avatarEmoji = btn.dataset.emoji;
-    saveState();
-    document.querySelectorAll('.emoji-btn').forEach(b => b.classList.toggle('active', b.dataset.emoji === state.avatarEmoji));
-  });
-
-  // Reset progress
-  document.getElementById('resetProgressBtn').addEventListener('click', () => {
-    if (!confirm('Reset all progress? This cannot be undone.')) return;
-    state.completedLessons = [];
-    state.lessonProgress = {};
-    state.quizHistory = [];
-    state.totalXP = 0;
-    state.streak = 0;
-    saveState();
-    renderDashboard();
-    renderQuizList();
-    showXPToast('Progress reset.');
-  });
-}
+// Deep links: #play-<id> opens a game directly (e.g. index.html#play-snake)
+const hashGame = location.hash.match(/^#play-(.+)$/);
+if (hashGame) openGame(hashGame[1]);
