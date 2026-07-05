@@ -426,6 +426,8 @@ button { font: inherit; color: inherit; background: none; border: none; cursor: 
 
 /* Tic-tac-toe */
 .ttt-wrap { display: flex; flex-direction: column; align-items: center; gap: 16px; }
+.ttt-modes { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.ttt-modes .chip { font-size: 0.84rem; padding: 7px 14px; }
 .ttt-status { font-family: var(--font-d); font-weight: 600; font-size: 1.05rem; min-height: 1.6em; }
 .board-ttt {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;

@@ -73,9 +73,9 @@ const GAMES = [
   },
   {
     id: 'ttt', name: 'Tic-Tac-Toe', tag: 'classic', emoji: '⭕',
-    desc: 'You vs. a ruthless little AI. Good luck — you\'ll need it.',
+    desc: 'Three difficulties. Impossible mode is exactly that.',
     grad: 'linear-gradient(135deg, #1e3a8a, #93c5fd)',
-    controls: 'Click or tap a square · you are X',
+    controls: 'Click or tap a square · you are X · pick a difficulty up top',
     unit: 'wins', better: 'high', factory: (s, a) => tttGame(s, a),
   },
 ];
@@ -754,11 +754,16 @@ function tttGame(stage, api) {
     [0, 4, 8], [2, 4, 6],
   ];
   const HU = 'X', AI = 'O';
-  let board, turn, done, wins = 0, losses = 0, draws = 0;
+  let board, turn, done, mode = 'normal', wins = 0, losses = 0, draws = 0;
 
   const wrap = document.createElement('div');
   wrap.className = 'ttt-wrap';
   wrap.innerHTML = `
+    <div class="ttt-modes" id="tttModes">
+      <button class="chip" data-mode="easy">😌 Easy</button>
+      <button class="chip active" data-mode="normal">🙂 Normal</button>
+      <button class="chip" data-mode="impossible">😈 Impossible</button>
+    </div>
     <div class="ttt-status" id="tttStatus">Your move — you're X</div>
     <div class="board-ttt" id="tttBoard">
       ${Array.from({ length: 9 }, (_, i) => `<button class="ttt-cell" data-i="${i}"></button>`).join('')}
@@ -769,6 +774,16 @@ function tttGame(stage, api) {
   const status = wrap.querySelector('#tttStatus');
   const nextBtn = wrap.querySelector('#tttNext');
 
+  wrap.querySelector('#tttModes').addEventListener('click', e => {
+    const chip = e.target.closest('.chip');
+    if (!chip || chip.dataset.mode === mode) return;
+    mode = chip.dataset.mode;
+    wrap.querySelector('#tttModes .active')?.classList.remove('active');
+    chip.classList.add('active');
+    if (mode === 'impossible') toast('😈 Impossible mode: the AI never loses. Ever.');
+    newRound();
+  });
+
   function newRound() {
     board = Array(9).fill(null);
     turn = HU; done = false;
@@ -777,7 +792,9 @@ function tttGame(stage, api) {
       c.disabled = false;
       c.className = 'ttt-cell';
     });
-    status.textContent = "Your move — you're X";
+    status.textContent = mode === 'impossible'
+      ? "Your move. It won't matter. 😈"
+      : "Your move — you're X";
     nextBtn.style.visibility = 'hidden';
   }
 
@@ -813,11 +830,18 @@ function tttGame(stage, api) {
     done = true;
     cells.forEach(c => (c.disabled = true));
     if (w.line) w.line.forEach(i => cells[i].classList.add('win'));
-    if (w.p === HU) { wins++; status.textContent = '🎉 You win!'; }
-    else if (w.p === AI) { losses++; status.textContent = '🤖 The AI wins.'; }
-    else { draws++; status.textContent = '🤝 Draw.'; }
-    api.setScore(`W ${wins} · L ${losses} · D ${draws}`);
     if (w.p === HU) {
+      wins++;
+      status.textContent = mode === 'impossible' ? '🎉 You win?! Impossible…' : '🎉 You win!';
+    } else if (w.p === AI) {
+      losses++;
+      status.textContent = mode === 'impossible' ? '😈 Told you.' : '🤖 The AI wins.';
+    } else {
+      draws++;
+      status.textContent = mode === 'impossible' ? '🤝 A draw is the best anyone can do.' : '🤝 Draw.';
+    }
+    api.setScore(`W ${wins} · L ${losses} · D ${draws}`);
+    if (w.p === HU && mode !== 'easy') {
       const prev = store.get('ttt');
       if (prev === undefined || wins > prev) {
         store.set('ttt', wins);
@@ -843,13 +867,19 @@ function tttGame(stage, api) {
     turn = AI;
     status.textContent = 'AI is thinking…';
     setTimeout(() => {
-      // first AI move: pick randomly among decent openings so games vary
-      const empties = board.filter(v => !v).length;
+      const empties = board
+        .map((v, i) => (v ? -1 : i))
+        .filter(i => i >= 0);
       let move;
-      if (empties === 8 && Math.random() < 0.5) {
+      if (mode === 'easy' && Math.random() < 0.7) {
+        // easy: mostly random moves with occasional flashes of competence
+        move = empties[(Math.random() * empties.length) | 0];
+      } else if (mode === 'normal' && empties.length === 8 && Math.random() < 0.5) {
+        // normal: sometimes opens loosely, giving you a real shot at winning
         const options = [0, 2, 4, 6, 8].filter(i => !board[i]);
         move = options[(Math.random() * options.length) | 0];
       } else {
+        // impossible (and everything else): flawless minimax
         move = minimax([...board], AI, 0).move;
       }
       place(move, AI);
